@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "238789587393",
+    "project_id": "nakliyatsistemi",
+    "storage_bucket": "nakliyatsistemi.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:238789587393:android:c35cd429307d7bd15abf40",
+        "android_client_info": {
+          "package_name": "com.example.u_243301011_sengul_sila_sahin_flutter_proje"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBFLQNIEB2gZtf4jE114JMZ4XtL0IqtYfk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
