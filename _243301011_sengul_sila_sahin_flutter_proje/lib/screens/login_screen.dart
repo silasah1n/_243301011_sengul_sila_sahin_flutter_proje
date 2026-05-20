@@ -138,6 +138,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF4C63D2),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -152,9 +153,11 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         child: SafeArea(
           child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
-              child: Column(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: MediaQuery.of(context).size.height - MediaQuery.of(context).padding.top - MediaQuery.of(context).padding.bottom),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
+                child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   // BAŞLIK VE İKON
@@ -173,7 +176,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 30),
                   const Text(
-                    'Nakliyat Sistemi',
+                    'Şahin Nakliyat',
                     style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
@@ -367,6 +370,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 30),
                 ],
               ),
+            ),
             ),
           ),
         ),
