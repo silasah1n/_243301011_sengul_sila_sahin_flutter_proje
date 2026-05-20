@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../services/log_service.dart';
+import '../services/validator_service.dart';
 
 class IlanEkleScreen extends StatefulWidget {
-  const IlanEkleScreen({super.key});
+  final String? ilanId;
+  final Map<String, dynamic>? mevcutVeri;
+
+  const IlanEkleScreen({super.key, this.ilanId, this.mevcutVeri});
+
+  bool get duzenlemeModu => ilanId != null;
 
   @override
   State<IlanEkleScreen> createState() => _IlanEkleScreenState();
@@ -15,7 +22,7 @@ const List<String> turkiyeIlleri = [
   'Artvin', 'Aydın', 'Balıkesir', 'Bartın', 'Batman', 'Bayburt', 'Bilecik', 'Bingöl',
   'Bitlis', 'Bolu', 'Burdur', 'Bursa', 'Çanakkale', 'Çankırı', 'Çorum', 'Denizli',
   'Diyarbakır', 'Düzce', 'Edirne', 'Elazığ', 'Erzincan', 'Erzurum', 'Eskişehir',
-  'Gaziantep', 'Giresun', 'Gümüşhane', 'Hakkari', 'Hatay', 'Iğdır', 'Isparta', 'İçel',
+  'Gaziantep', 'Giresun', 'Gümüşhane', 'Hakkari', 'Hatay', 'Iğdır', 'Isparta',
   'İstanbul', 'İzmir', 'Kahramanmaraş', 'Karabük', 'Karaman', 'Kars', 'Kastamonu',
   'Kayseri', 'Kırıkkale', 'Kırklareli', 'Kırşehir', 'Kocaeli', 'Konya', 'Kütahya',
   'Malatya', 'Manisa', 'Mardin', 'Mersin', 'Muğla', 'Muş', 'Nevşehir', 'Niğde',
@@ -31,13 +38,36 @@ class _IlanEkleScreenState extends State<IlanEkleScreen> {
   final _aciklamaController = TextEditingController();
   bool _isLoading = false;
 
+  @override
+  void initState() {
+    super.initState();
+    if (widget.mevcutVeri != null) {
+      _neredenSecilmi = widget.mevcutVeri!['nereden'] as String?;
+      _nereyeSecilmi = widget.mevcutVeri!['nereye'] as String?;
+      _fiyatController.text = (widget.mevcutVeri!['fiyat'] ?? '').toString();
+      _aciklamaController.text = widget.mevcutVeri!['aciklama'] as String? ?? '';
+    }
+  }
+
+  @override
+  void dispose() {
+    _fiyatController.dispose();
+    _aciklamaController.dispose();
+    super.dispose();
+  }
+
   void _ilanYayinla() async {
-    if (_neredenSecilmi == null || _nereyeSecilmi == null || _fiyatController.text.isEmpty) {
+    final neredenHata = ValidatorService.validateCity(_neredenSecilmi);
+    final nereyeHata = ValidatorService.validateCity(_nereyeSecilmi);
+    final fiyatHata = ValidatorService.validatePrice(_fiyatController.text.trim());
+    final sehirFarkHata = _neredenSecilmi != null && _nereyeSecilmi != null
+        ? ValidatorService.validateDifferentCities(_neredenSecilmi!, _nereyeSecilmi!)
+        : null;
+
+    final hata = neredenHata ?? nereyeHata ?? fiyatHata ?? sehirFarkHata;
+    if (hata != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Lütfen gerekli alanları doldurun!'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text(hata), backgroundColor: Colors.red),
       );
       return;
     }
@@ -48,21 +78,54 @@ class _IlanEkleScreenState extends State<IlanEkleScreen> {
 
     try {
       String? userUid = FirebaseAuth.instance.currentUser?.uid;
+      final fiyat = double.tryParse(_fiyatController.text.trim()) ?? 0.0;
+      final aciklama = _aciklamaController.text.trim();
 
-      await FirebaseFirestore.instance.collection('ilanlar').add({
-        'musteriUid': userUid,
-        'nereden': _neredenSecilmi,
-        'nereye': _nereyeSecilmi,
-        'fiyat': double.tryParse(_fiyatController.text.trim()) ?? 0.0,
-        'aciklama': _aciklamaController.text.trim(),
-        'durum': 'Beklemede',
-        'tarih': DateTime.now(),
-      });
+      if (widget.duzenlemeModu) {
+        await FirebaseFirestore.instance.collection('ilanlar').doc(widget.ilanId).update({
+          'nereden': _neredenSecilmi,
+          'nereye': _nereyeSecilmi,
+          'fiyat': fiyat,
+          'aciklama': aciklama,
+          'guncellemeTarihi': Timestamp.now(),
+        });
+        await LogService().logEvent(
+          actionType: 'UPDATE_ILAN',
+          description: 'İlan güncellendi',
+          details: {
+            'ilanId': widget.ilanId,
+            'nereden': _neredenSecilmi,
+            'nereye': _nereyeSecilmi,
+            'fiyat': fiyat,
+            'timestamp': DateTime.now().toString(),
+          },
+        );
+      } else {
+        await FirebaseFirestore.instance.collection('ilanlar').add({
+          'musteriUid': userUid,
+          'nereden': _neredenSecilmi,
+          'nereye': _nereyeSecilmi,
+          'fiyat': fiyat,
+          'aciklama': aciklama,
+          'durum': 'Beklemede',
+          'tarih': Timestamp.now(),
+        });
+        await LogService().logEvent(
+          actionType: 'CREATE_ILAN',
+          description: 'Yeni ilan oluşturuldu',
+          details: {
+            'nereden': _neredenSecilmi,
+            'nereye': _nereyeSecilmi,
+            'fiyat': fiyat,
+            'timestamp': DateTime.now().toString(),
+          },
+        );
+      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('İlan başarıyla yayınlandı!'),
+        SnackBar(
+          content: Text(widget.duzenlemeModu ? 'İlan güncellendi!' : 'İlan başarıyla yayınlandı!'),
           backgroundColor: Colors.green,
         ),
       );
@@ -160,7 +223,9 @@ class _IlanEkleScreenState extends State<IlanEkleScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Yeni Nakliyat İlanı Aç')),
+      appBar: AppBar(
+        title: Text(widget.duzenlemeModu ? 'İlanı Düzenle' : 'Yeni Nakliyat İlanı Aç'),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -245,9 +310,9 @@ class _IlanEkleScreenState extends State<IlanEkleScreen> {
                 ? const CircularProgressIndicator()
                 : ElevatedButton(
                     onPressed: _ilanYayinla,
-                    child: const Text(
-                      'İlanı Yayınla',
-                      style: TextStyle(fontSize: 18),
+                    child: Text(
+                      widget.duzenlemeModu ? 'Değişiklikleri Kaydet' : 'İlanı Yayınla',
+                      style: const TextStyle(fontSize: 18),
                     ),
                   ),
           ],

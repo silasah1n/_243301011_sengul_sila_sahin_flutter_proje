@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/auth_service.dart';
 import 'ilan_ekle_screen.dart';
+import 'ilan_detay_screen.dart';
+import 'profile_screen.dart';
 
 class MusteriHomeScreen extends StatelessWidget {
   const MusteriHomeScreen({super.key});
@@ -18,11 +21,15 @@ class MusteriHomeScreen extends StatelessWidget {
           centerTitle: true,
           actions: [
             IconButton(
+              icon: const Icon(Icons.person),
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
+              },
+            ),
+            IconButton(
               icon: const Icon(Icons.logout),
               onPressed: () async {
-                await FirebaseAuth.instance.signOut();
-                if (!context.mounted) return;
-                Navigator.pushReplacementNamed(context, '/');
+                await AuthService.cikisYap();
               },
             )
           ],
@@ -75,35 +82,54 @@ class MusteriHomeScreen extends StatelessWidget {
           padding: const EdgeInsets.all(15),
           itemCount: ilanlar.length,
           itemBuilder: (context, index) {
+            // Firestore doküman ID'sini ve verilerini alıyoruz
+            final String ilanId = ilanlar[index].id;
             final ilan = ilanlar[index].data() as Map<String, dynamic>;
 
             return Card(
               elevation: 4,
               margin: const EdgeInsets.only(bottom: 15),
-              child: Padding(
-                padding: const EdgeInsets.all(15.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('${ilan['nereden']} ➔ ${ilan['nereye']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    const Divider(),
-                    Text('Durum: ${ilan['durum']}', style: TextStyle(color: _durumRengi(ilan['durum']), fontWeight: FontWeight.bold)),
-                    
-                    // Şoför Bilgisini Gösterme (Eğer şoför kabul ettiyse)
-                    if (ilan['soforEmail'] != null) ...[
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          const Icon(Icons.person, size: 18, color: Colors.blue),
-                          const SizedBox(width: 5),
-                          Text('Şoför: ${ilan['soforEmail']}', style: const TextStyle(color: Colors.blue)),
-                        ],
+              // 🎯 TIKLAMA ÖZELLİĞİ İÇİN INKWELL EKLEDİK
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8), // Kart kenarlarına uyum sağlasın diye
+                onTap: () {
+                  // İlana tıklandığında Detay Ekranına gidiyor
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => IlanDetayScreen(
+                        ilanId: ilanId,
+                        ilanData: ilan,
+                        isSofor: false, // 🎯 Müşteri ekranı olduğu için FALSE yaptık
                       ),
+                    ),
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(15.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('${ilan['nereden']} ➔ ${ilan['nereye']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const Divider(),
+                      Text('Durum: ${ilan['durum']}', style: TextStyle(color: _durumRengi(ilan['durum']), fontWeight: FontWeight.bold)),
+                      
+                      // Şoför Bilgisini Gösterme (Eğer şoför kabul ettiyse)
+                      if (ilan['soforEmail'] != null) ...[
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            const Icon(Icons.person, size: 18, color: Colors.blue),
+                            const SizedBox(width: 5),
+                            Text('Şoför: ${ilan['soforEmail']}', style: const TextStyle(color: Colors.blue)),
+                          ],
+                        ),
+                      ],
+                      
+                      const SizedBox(height: 10),
+                      Text('Teklif Edilen Fiyat: ${ilan['fiyat']} TL'),
                     ],
-                    
-                    const SizedBox(height: 10),
-                    Text('Teklif Edilen Fiyat: ${ilan['fiyat']} TL'),
-                  ],
+                  ),
                 ),
               ),
             );

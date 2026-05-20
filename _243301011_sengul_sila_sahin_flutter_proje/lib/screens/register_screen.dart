@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/log_service.dart';
+import '../services/validator_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -26,9 +28,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _kayitOl() async {
-    if (_nameController.text.isEmpty || _surnameController.text.isEmpty || _emailController.text.isEmpty || _passwordController.text.isEmpty) {
+    final isimHata = ValidatorService.validateName(_nameController.text.trim());
+    final soyisimHata = ValidatorService.validateName(_surnameController.text.trim());
+    final emailHata = ValidatorService.validateEmail(_emailController.text.trim());
+    final sifreHata = ValidatorService.validatePassword(_passwordController.text.trim());
+
+    final hata = isimHata ?? soyisimHata ?? emailHata ?? sifreHata;
+    if (hata != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Lütfen tüm alanları doldurun!'), backgroundColor: Colors.red),
+        SnackBar(content: Text(hata), backgroundColor: Colors.red),
       );
       return;
     }
@@ -45,10 +53,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
         'uid': userCredential.user!.uid,
         'isim': _nameController.text.trim(),
         'soyisim': _surnameController.text.trim(),
-        'eposta': _emailController.text.trim(),
+        'email': _emailController.text.trim(),
         'rol': _selectedRole,
         'kayitTarihi': Timestamp.now(),
       });
+
+      await LogService().logEvent(
+        actionType: 'REGISTER',
+        description: 'Yeni kullanıcı kaydı oluşturuldu',
+        details: {
+          'email': _emailController.text.trim(),
+          'rol': _selectedRole,
+          'timestamp': DateTime.now().toString(),
+        },
+      );
 
       // --- [KRİTİK KONTROL] ---
       // Eğer bu süreçte kullanıcı ekrandan ayrıldıysa aşağıyı çalıştırma, çökmesi engellenir.

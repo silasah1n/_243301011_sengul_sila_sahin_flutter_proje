@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/auth_service.dart';
+import '../services/log_service.dart';
+import 'ilan_detay_screen.dart';
+import 'profile_screen.dart';
 
 class SoforHomeScreen extends StatefulWidget {
   const SoforHomeScreen({super.key});
@@ -23,11 +27,15 @@ class _SoforHomeScreenState extends State<SoforHomeScreen> {
           centerTitle: true,
           actions: [
             IconButton(
+              icon: const Icon(Icons.person),
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
+              },
+            ),
+            IconButton(
               icon: const Icon(Icons.logout),
               onPressed: () async {
-                await FirebaseAuth.instance.signOut();
-                if (!mounted) return;
-                Navigator.pushReplacementNamed(context, '/');
+                await AuthService.cikisYap();
               },
             )
           ],
@@ -90,52 +98,91 @@ class _SoforHomeScreenState extends State<SoforHomeScreen> {
           itemBuilder: (context, index) {
             final doc = ilanlar[index];
             final ilan = doc.data() as Map<String, dynamic>;
+            final String ilanId = doc.id; // İlanın Firebase doküman ID'si
 
             return Card(
               elevation: 4,
               margin: const EdgeInsets.only(bottom: 15),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(15.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('${ilan['nereden']} ➔ ${ilan['nereye']}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    const Divider(),
-                    Text('Fiyat: ${ilan['fiyat']} TL', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 10),
-                    
-                    if (tabTipi == 'acik')
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white),
-                        onPressed: () async {
-                          await FirebaseFirestore.instance.collection('ilanlar').doc(doc.id).update({
-                            'durum': 'Şoför Kabul Etti',
-                            'soforUid': mevcutSoforUid,
-                            'soforEmail': mevcutSoforEmail, // Müşterinin görmesi için ekledik
-                          });
-                        },
-                        child: const Text('Seferi Üstlen'),
+              // 🎯 TIKLAMA ÖZELLİĞİ İÇİN INKWELL EKLEDİK
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () {
+                  // Herhangi bir ilana tıklandığında detay sayfasına yönlendiriyoruz
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => IlanDetayScreen(
+                        ilanId: ilanId,
+                        ilanData: ilan,
+                        isSofor: true, // 🎯 Şoför ekranı olduğu için TRUE yapıyoruz
                       ),
-                    
-                    if (tabTipi == 'aktif')
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
-                        onPressed: () async {
-                          await FirebaseFirestore.instance.collection('ilanlar').doc(doc.id).update({'durum': 'Teslim Edildi'});
-                        },
-                        child: const Text('Teslim Et (Seferi Bitir)'),
-                      ),
+                    ),
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(15.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('${ilan['nereden']} ➔ ${ilan['nereye']}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      const Divider(),
+                      Text('Fiyat: ${ilan['fiyat']} TL', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 10),
+                      
+                      if (tabTipi == 'acik')
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white),
+                          onPressed: () async {
+                            await FirebaseFirestore.instance.collection('ilanlar').doc(doc.id).update({
+                              'durum': 'Şoför Kabul Etti',
+                              'soforUid': mevcutSoforUid,
+                              'soforEmail': mevcutSoforEmail,
+                            });
+                            await LogService().logEvent(
+                              actionType: 'ACCEPT_SEFER',
+                              description: 'Şoför seferi üstlendi',
+                              details: {
+                                'ilanId': doc.id,
+                                'nereden': ilan['nereden'],
+                                'nereye': ilan['nereye'],
+                                'fiyat': ilan['fiyat'],
+                                'timestamp': DateTime.now().toString(),
+                              },
+                            );
+                          },
+                          child: const Text('Seferi Üstlen'),
+                        ),
+                      
+                      if (tabTipi == 'aktif')
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                          onPressed: () async {
+                            await FirebaseFirestore.instance.collection('ilanlar').doc(doc.id).update({'durum': 'Teslim Edildi'});
+                            await LogService().logEvent(
+                              actionType: 'COMPLETE_SEFER',
+                              description: 'Sefer teslim edildi',
+                              details: {
+                                'ilanId': doc.id,
+                                'nereden': ilan['nereden'],
+                                'nereye': ilan['nereye'],
+                                'timestamp': DateTime.now().toString(),
+                              },
+                            );
+                          },
+                          child: const Text('Teslim Et (Seferi Bitir)'),
+                        ),
 
-                    if (tabTipi == 'tamamlanan')
-                      const Row(
-                        children: [
-                          Icon(Icons.check_circle, color: Colors.green),
-                          SizedBox(width: 5),
-                          Text('Bu sefer başarıyla tamamlandı', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                  ],
+                      if (tabTipi == 'tamamlanan')
+                        const Row(
+                          children: [
+                            Icon(Icons.check_circle, color: Colors.green),
+                            SizedBox(width: 5),
+                            Text('Bu sefer başarıyla tamamlandı', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                    ],
+                  ),
                 ),
               ),
             );
