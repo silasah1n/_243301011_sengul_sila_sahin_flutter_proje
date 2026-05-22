@@ -22,15 +22,15 @@ Nakliyat ve Rezervasyon Sistemi, müşteriler ve şoförler arasında taşıyıc
 
 ### Müşteri Hesabı
 ```
-📧 E-posta: musteri@test.com
+📧 E-posta: sila@gmail.com
 🔑 Şifre: 123456
 👤 Rol: Müşteri
 ```
 
 ### Şoför Hesabı
 ```
-📧 E-posta: sofor@test.com
-🔑 Şifre: 123456
+📧 E-posta: ali@gmail.com
+🔑 Şifre: 098765
 👤 Rol: Şoför
 ```
 
@@ -124,7 +124,7 @@ flutter pub get
 flutter run
 ```
 
-## 📸 Ekran Görüntüleri
+
 
 *Buraya ekran görüntüleri eklenecek*
 
